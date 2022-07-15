@@ -1,0 +1,35 @@
+#!/bin/bash
+
+CAPNCAP_DIR="$(cd "$(dirname "$0")" && pwd)"
+. ${CAPNCAP_DIR}/helpers/docker_helper.sh
+. ${CAPNCAP_DIR}/helpers/version.sh
+
+MODE="${1:-run}"
+
+function build_image () {
+  if [[ $(docker_image_exists "${CAPNCAP_REPO}" "${CAPNCAP_VERSION}") -eq 0 ]] ; then
+    cd "${CAPNCAP_DIR}" && docker build . -t "${CAPNCAP_IMAGE_NAME}"
+  fi
+}
+
+case "${MODE}" in
+  build)
+    build_image
+    ;;
+  run)
+    shift
+    CAPNCAP_URL="${1:?no URL provided}"
+    CAPNCAP_OUTFILE="${2:?no outfile provided}"
+    remove_docker_containers "${CAPNCAP_CONTAINER_NAME}"
+
+    OUTPUT_DIR="${CAPNCAP_DIR}/out"
+    mkdir -p "${OUTPUT_DIR}"
+    cd "${CAPNCAP_DIR}" && docker run -t --name "${CAPNCAP_CONTAINER_NAME}" \
+      -e CAPNCAP_URL="${CAPNCAP_URL}" \
+      -e CAPNCAP_OUTFILE="/capncap/out/${CAPNCAP_OUTFILE}" \
+      -v "${OUTPUT_DIR}":/capncap/out \
+      "${CAPNCAP_IMAGE_NAME}"
+    ;;
+  *)
+    die "Unknown mode: ${MODE} (valid modes are 'build', 'run', and 'clean')"
+esac
